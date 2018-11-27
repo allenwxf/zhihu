@@ -3,3 +3,4 @@
 *.DS_Store
 *.swp
 .idea
+/sentiment_analysis/data/glove.6B.300d.txt
