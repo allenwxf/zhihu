@@ -1,17 +1,12 @@
 
 # coding: utf-8
 
-# <br>
-# <font size=8>Sentiment Analysis</font>
-# <br><br>
 # 本篇文章主要用神经网络中三种最基本的神经网络dnn、rnn以及cnn构建情感分类模型，并比较和分析不同模型的优劣。具体而言本文分为四个部分:
 # 
 # - 数据处理
 # - DNN模型
 # - RNN模型
 # - CNN模型
-
-# In[1]:
 
 
 import warnings
@@ -25,42 +20,29 @@ import tensorflow as tf
 from collections import Counter
 import tqdm
 
-get_ipython().magic('matplotlib inline')
+# get_ipython().magic('matplotlib inline')
 
-
-# In[2]:
-
-
-tf.__version__
+print(tf.__version__)
 
 
 # # 数据处理
 
+
 # ## 数据加载
-
-# In[3]:
-
 
 os.listdir("./data")
 
-
-# In[4]:
-
-
 # 加载正负评论数据
 # pos数据
-with open("data/pos.txt", "r") as f:
+with open("data/pos.txt", "r", encoding="utf-8") as f:
     pos_text = f.read()
 
 # neg数据
-with open("data/neg.txt", "r") as f:
+with open("data/neg.txt", "r", encoding="utf-8") as f:
     neg_text = f.read()
 
 
 # ## 描述性统计
-
-# In[5]:
-
 
 # 积极文本统计
 print("-" * 20 + " POSITIVE TEXT " + "-" * 20)
@@ -74,7 +56,7 @@ print("The min length of positive sentences: {}".format(np.min([len(sentence.spl
 c = Counter(pos_text.split()).most_common(100)
 print("Most common words in positive sentences: \n{}".format(c))
 
-# 校级文本统计
+# 消极文本统计
 print()
 print("-" * 20 + " NEGATIVE TEXT " + "-" * 20)
 # 分句
@@ -94,35 +76,21 @@ print("Most common words in negative sentences: \n{}".format(c))
 # - 构造映射表
 # - 转换单词为tokens
 
-# In[6]:
-
-
 # 句子最大长度
 SENTENCE_LIMIT_SIZE = 20
-
 
 # ### 构造词典
 # 
 # 我们要基于整个语料来构造我们的词典，由于文本中包含许多干扰词汇，例如仅出现过1次的这类单词。对于这类极其低频词汇，我们可以对其进行去除，一方面能加快模型执行效率，一方面也能减少特殊词带来的噪声。
-
-# In[7]:
-
 
 # 合并pos和neg文本
 total_text = pos_text + "\n" + neg_text
 # 统计词汇
 c = Counter(total_text.split())
 
-
-# In[8]:
-
-
 # 倒序查看词频
+# 实际中一般在分词之后会对单词进行词干化（Stem）处理，之后再进行词频统计
 sorted(c.most_common(), key=lambda x: x[1])
-
-
-# In[9]:
-
 
 # 初始化两个token：pad和unk
 vocab = ["<pad>", "<unk>"]
@@ -132,17 +100,10 @@ for w, f in c.most_common():
     if f > 1:
         vocab.append(w)
 
-
-# In[10]:
-
-
 print("The total size of our vocabulary is: {}".format(len(vocab)))
 
 
 # ### 构造映射
-
-# In[11]:
-
 
 # 单词到编码的映射，例如machine -> 10283
 word_to_token = {word: token for token, word in enumerate(vocab)}
@@ -151,9 +112,6 @@ token_to_word = {token: word for word, token in word_to_token.items()}
 
 
 # ### 转换文本
-
-# In[12]:
-
 
 def convert_text_to_token(sentence, word_to_token_map=word_to_token, limit_size=SENTENCE_LIMIT_SIZE):
     """
@@ -182,65 +140,36 @@ def convert_text_to_token(sentence, word_to_token_map=word_to_token, limit_size=
     return tokens
 
 
-# In[13]:
-
-
+# tqdm 添加一个进度条...
 # 对pos文本处理
 pos_tokens = []
-
 for sentence in tqdm.tqdm(pos_sentences):
     tokens = convert_text_to_token(sentence)
     pos_tokens.append(tokens)
 
-
-# In[14]:
-
-
 # 对neg文本处理
 neg_tokens = []
-
 for sentence in tqdm.tqdm(neg_sentences):
     tokens = convert_text_to_token(sentence)
     neg_tokens.append(tokens)
-
-
-# In[15]:
-
 
 # 转化为numpy格式，方便处理
 pos_tokens = np.array(pos_tokens)
 neg_tokens = np.array(neg_tokens)
 
-
-# In[16]:
-
-
 # 合并所有语料
 total_tokens = np.concatenate((pos_tokens, neg_tokens), axis=0)
 
-
-# In[17]:
-
-
 print("The shape of all tokens in our corpus: ({}, {})".format(*total_tokens.shape))
-
-
-# In[18]:
-
 
 # 转化为numpy格式，方便处理
 pos_targets = np.ones((pos_tokens.shape[0]))
 neg_targets = np.zeros((neg_tokens.shape[0]))
 
-
-# In[19]:
-
-
 # 合并所有target
 total_targets = np.concatenate((pos_targets, neg_targets), axis=0).reshape(-1, 1)
 
 
-# In[20]:
 
 
 print("The shape of all targets in our corpus: ({}, {})".format(*total_targets.shape))
@@ -255,11 +184,8 @@ print("The shape of all targets in our corpus: ({}, {})".format(*total_targets.s
 
 # ### 加载glove预训练词向量
 
-# In[21]:
-
-
 # 加载预训练好的glove词向量
-with open("data/glove.6B.300d.txt", 'r') as f:
+with open("data/glove.6B.300d.txt", 'r', encoding="utf-8") as f:
     words = set()
     word_to_vec = {}
     for line in f:
@@ -270,10 +196,6 @@ with open("data/glove.6B.300d.txt", 'r') as f:
         # 当前词向量
         word_to_vec[curr_word] = np.array(line[1:], dtype=np.float32)
 
-
-# In[22]:
-
-
 print("The number of words which have pretrained-vectors in vocab is: {}".format(len(set(vocab)&set(words))))
 print()
 print("The number of words which do not have pretrained-vectors in vocab is : {}".format(len(set(vocab))-
@@ -282,14 +204,8 @@ print("The number of words which do not have pretrained-vectors in vocab is : {}
 
 # ### 构造词向量矩阵
 
-# In[23]:
-
-
 VOCAB_SIZE = len(vocab)  # 10384
 EMBEDDING_SIZE = 300
-
-
-# In[24]:
 
 
 # 初始化词向量矩阵（这里命名为static是因为这个词向量矩阵用预训练好的填充，无需重新训练）
@@ -304,19 +220,12 @@ for word, token in tqdm.tqdm(word_to_token.items()):
 pad_id = word_to_token["<pad>"]
 static_embeddings[pad_id, :] = np.zeros(EMBEDDING_SIZE)
 
-
-# In[25]:
-
-
 static_embeddings = static_embeddings.astype(np.float32)
 
 
 # ## 辅助函数
 
 # ### 分割train和test
-
-# In[26]:
-
 
 def split_train_test(x, y, train_ratio=0.8, shuffle=True):
     """
@@ -344,18 +253,13 @@ def split_train_test(x, y, train_ratio=0.8, shuffle=True):
     
     return x_train, x_test, y_train, y_test
 
-
-# In[27]:
-
-
 # 划分train和test
 x_train, x_test, y_train, y_test = split_train_test(total_tokens, total_targets)
 
 
 # ### get_batch函数
 
-# In[29]:
-
+BATCH_SIZE = 256
 
 def get_batch(x, y, batch_size=BATCH_SIZE, shuffle=True):
     assert x.shape[0] == y.shape[0], print("error shape!")
@@ -382,14 +286,9 @@ def get_batch(x, y, batch_size=BATCH_SIZE, shuffle=True):
 # 
 # <img src="images/dnn.png" style="width:500;height:500px;">
 
-# In[30]:
-
 
 # 清空图
 tf.reset_default_graph()
-
-
-# In[31]:
 
 
 # 定义神经网络超参数
@@ -397,10 +296,6 @@ HIDDEN_SIZE = 512
 LEARNING_RATE = 0.001
 EPOCHES = 50
 BATCH_SIZE = 256
-
-
-# In[32]:
-
 
 with tf.name_scope("dnn"):
     # 输入及输出tensor
@@ -446,25 +341,13 @@ with tf.name_scope("dnn"):
         correct_preds = tf.equal(tf.cast(tf.greater(outputs, 0.5), tf.float32), targets)
         accuracy = tf.reduce_sum(tf.reduce_sum(tf.cast(correct_preds, tf.float32), axis=1))
 
-
 # ## 训练模型
-
-# In[33]:
-
 
 # 存储准确率
 dnn_train_accuracy = []
 dnn_test_accuracy = []
 
-
-# In[34]:
-
-
 saver = tf.train.Saver()
-
-
-# In[35]:
-
 
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
@@ -500,10 +383,6 @@ with tf.Session() as sess:
     saver.save(sess, "./checkpoints/dnn")
     writer.close()
 
-
-# In[47]:
-
-
 plt.plot(dnn_train_accuracy)
 plt.plot(dnn_test_accuracy)
 plt.ylim(ymin=0.5, ymax=1.01)
@@ -512,9 +391,6 @@ plt.legend(["train", "test"])
 
 
 # ## 预测模型
-
-# In[48]:
-
 
 # 在test上的准确率
 with tf.Session() as sess:
@@ -529,21 +405,13 @@ with tf.Session() as sess:
 
 
 # 在命令行执行tensorboard --logdir="./graphs/dnn" --port 6006可以看到模型的tensorboard
-# 
-# <img src="images/dnn-tensorboard.png" style="width:500;height:500px;">
 
 # # RNN模型
 
 # ## 构建模型图
 
-# In[60]:
-
-
 # 清空图
 tf.reset_default_graph()
-
-
-# In[59]:
 
 
 # 定义网络超参数
@@ -552,10 +420,6 @@ LEARNING_RATE = 0.001
 KEEP_PROB = 0.5
 EPOCHES = 50
 BATCH_SIZE = 256
-
-
-# In[61]:
-
 
 with tf.name_scope("rnn"):
     # placeholders
@@ -597,22 +461,11 @@ with tf.name_scope("rnn"):
 
 # ## 训练模型
 
-# In[62]:
-
-
 # 存储准确率
 rnn_train_accuracy = []
 rnn_test_accuracy = []
 
-
-# In[63]:
-
-
 saver = tf.train.Saver()
-
-
-# In[64]:
-
 
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
@@ -645,10 +498,6 @@ with tf.Session() as sess:
     saver.save(sess, "checkpoints/rnn")
     writer.close()
 
-
-# In[66]:
-
-
 plt.plot(rnn_train_accuracy)
 plt.plot(rnn_test_accuracy)
 plt.ylim(ymin=0.5, ymax=1.01)
@@ -657,9 +506,6 @@ plt.legend(["train", "test"])
 
 
 # ## 预测模型
-
-# In[67]:
-
 
 # 在test上的准确率
 with tf.Session() as sess:
@@ -672,20 +518,11 @@ with tf.Session() as sess:
 
 
 # 在命令行执行tensorboard --logdir="./graphs/rnn" --port 6006可以看到模型的tensorboard
-# 
-# <img src="images/lstm-tensorboard.png" style="width:500;height:500px;">
 
 # # CNN模型
 
-# In[69]:
-
-
 # 清空图
 tf.reset_default_graph()
-
-
-# In[70]:
-
 
 # 我在这里定义了5种filter，每种100个
 filters_size = [2, 3, 4, 5, 6]
@@ -697,11 +534,7 @@ LEARNING_RATE = 0.001
 L2_LAMBDA = 10
 KEEP_PROB = 0.8
 
-
 # ## 构建模型图
-
-# In[71]:
-
 
 with tf.name_scope("cnn"):
     with tf.name_scope("placeholders"):
@@ -772,22 +605,11 @@ with tf.name_scope("cnn"):
 
 # ## 训练模型
 
-# In[72]:
-
-
 # 存储准确率
 cnn_train_accuracy = []
 cnn_test_accuracy = []
 
-
-# In[73]:
-
-
 saver = tf.train.Saver()
-
-
-# In[74]:
-
 
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
@@ -819,10 +641,6 @@ with tf.Session() as sess:
     saver.save(sess, "checkpoints/cnn")
     writer.close()
 
-
-# In[76]:
-
-
 plt.plot(cnn_train_accuracy)
 plt.plot(cnn_test_accuracy)
 plt.ylim(ymin=0.5, ymax=1.01)
@@ -832,9 +650,6 @@ plt.legend(["train", "test"])
 
 # ## 预测模型
 
-# In[75]:
-
-
 # 在test上的准确率
 with tf.Session() as sess:
     saver.restore(sess, "checkpoints/cnn")
@@ -842,26 +657,17 @@ with tf.Session() as sess:
     total_correct = sess.run(accuracy,
                              feed_dict={inputs: x_test, targets: y_test})
 
-    print("The LSTM model accuracy on test set: {:.2f}%".format(100 * total_correct / x_test.shape[0]))
+    print("The CNN model accuracy on test set: {:.2f}%".format(100 * total_correct / x_test.shape[0]))
 
 
 # 在命令行执行tensorboard --logdir="./graphs/rnn" --port 6006可以看到模型的tensorboard
-# 
-# <img src="images/cnn-tensorboard.png" style="width:500;height:500px;">
 
 # # CNN multi-channel
 
 # ## 构建模型图
 
-# In[123]:
-
-
 # 清空图
 tf.reset_default_graph()
-
-
-# In[124]:
-
 
 # 我在这里定义了5种filter，每种100个
 filters_size = [2, 3, 4, 5, 6]
@@ -872,10 +678,6 @@ EPOCHES = 8
 LEARNING_RATE = 0.001
 L2_LAMBDA = 10
 KEEP_PROB = 0.8
-
-
-# In[125]:
-
 
 with tf.name_scope("cnn_multichannels"):
     with tf.name_scope("placeholders"):
@@ -952,21 +754,10 @@ with tf.name_scope("cnn_multichannels"):
 
 # ## 训练模型
 
-# In[126]:
-
-
 multi_cnn_train_accuracy = []
 multi_cnn_test_accuracy = []
 
-
-# In[127]:
-
-
 saver = tf.train.Saver()
-
-
-# In[128]:
-
 
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
@@ -998,10 +789,6 @@ with tf.Session() as sess:
     saver.save(sess, "checkpoints/multi_cnn")
     writer.close()
 
-
-# In[131]:
-
-
 plt.plot(multi_cnn_train_accuracy)
 plt.plot(multi_cnn_test_accuracy)
 plt.ylim(ymin=0.5, ymax=1.01)
@@ -1011,9 +798,6 @@ plt.legend(["train", "test"])
 
 # ## 预测模型
 
-# In[132]:
-
-
 # 在test上的准确率
 with tf.Session() as sess:
     saver.restore(sess, "checkpoints/multi_cnn")
@@ -1021,5 +805,5 @@ with tf.Session() as sess:
     total_correct = sess.run(accuracy,
                              feed_dict={inputs: x_test, targets: y_test})
 
-    print("The LSTM model accuracy on test set: {:.2f}%".format(100 * total_correct / x_test.shape[0]))
+    print("The MULTI-CNN model accuracy on test set: {:.2f}%".format(100 * total_correct / x_test.shape[0]))
 
